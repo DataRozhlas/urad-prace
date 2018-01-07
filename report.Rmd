@@ -1,0 +1,64 @@
+---
+title: "Nabídky práce s nejnižší mzdou"
+author: "Petr Kočí"
+date: "6 1 2018"
+output: html_document
+---
+
+Z [webu MPSV](https://portal.mpsv.cz/sz/obcane/vmjedno) jsme stáhli 63601 nabídek volných míst platných k 5. lednu 2008.
+
+Z nich jsme vybrali 56348 takových, u kterých je v systému uvedeno, že jde o práci na plný úvazek a zároveň je uváděna měsíční (nikoli tedy například hodinová) mzda.
+
+Ve výdlecích přesto zůstalo několik nabídek, u kterých je nabízená mzda menší než tisíc korun. Jedná se pravděpodobně o chyby v databázi (úředníci špatně vyplnili formuláře).
+
+Jednotlivé nejnižší nabídky je proto potřeba ještě ručně projít a vybrat ty, které jsou skutečně relevantní. Na každém řádku je zobrazen odkaz, kliknutím na něj se lze dostat na příslušný inzerát, pokud je stále
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(xml2)
+
+volnamista <- read_xml("vm20180105.xml")
+
+volnamista <- as_list(volnamista)
+
+nazev=character()
+doplnek=character()
+plnyuvazek=character()
+minmzda=numeric()
+maxmzda=numeric()
+typmzdy=character()
+obec=character()
+id=character()
+
+for (i in 1:length(volnamista)) {
+  profese <- as.data.frame(attributes(volnamista[[i]]$PROFESE))
+  nazev <- append(nazev, as.character(profese$nazev))
+  ifelse(length(as.character(profese$doplnek))>0,
+    doplnek <- append(doplnek, as.character(profese$doplnek)),
+    doplnek <- append(doplnek, NA))
+  pracovnivztah <- as.data.frame(attributes(volnamista[[i]]$PRACPRAVNI_VZTAH))
+  plnyuvazek <- append(plnyuvazek, as.character(pracovnivztah$ppvztahPpPlny))
+  mzda <- as.data.frame(attributes(volnamista[[i]]$MZDA))
+  minmzda <- append(minmzda, as.numeric(as.character(mzda$min)))
+  ifelse(length(as.character(mzda$max))>0,
+    maxmzda <- append(maxmzda, as.numeric(as.character(mzda$max))),
+    maxmzda <- append(maxmzda, NA)
+  )
+  typmzdy <- append(typmzdy, as.character(mzda$typMzdy))
+  pracoviste <- as.data.frame(attributes(volnamista[[i]]$PRACOVISTE))
+  ifelse(length(as.character(pracoviste$obec))>0,
+    obec <- append(obec, as.character(pracoviste$obec)),
+    obec <- append(obec, NA)
+  )
+  id <- append(id, attributes(volnamista[[i]])$uid) 
+}
+
+result <- data.frame(nazev, doplnek, minmzda, maxmzda, typmzdy, plnyuvazek, obec, id=paste0("https://portal.mpsv.cz/sz/obcane/vmjedno?ref=", id)) 
+
+library(dplyr)
+
+result %>%
+  filter(plnyuvazek=="A") %>%
+  filter(typmzdy=="M") %>%
+  arrange(minmzda)
+```
+
